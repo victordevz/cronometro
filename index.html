@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cronômetro Regressivo</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Inter', sans-serif;
+      background: #0a0a1a;
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* Animated gradient background */
+    body::before {
+      content: '';
+      position: fixed;
+      top: -50%;
+      left: -50%;
+      width: 200%;
+      height: 200%;
+      background: 
+        radial-gradient(ellipse at 20% 50%, rgba(120, 50, 255, 0.15) 0%, transparent 50%),
+        radial-gradient(ellipse at 80% 20%, rgba(255, 50, 120, 0.1) 0%, transparent 50%),
+        radial-gradient(ellipse at 50% 80%, rgba(50, 120, 255, 0.1) 0%, transparent 50%);
+      animation: bgShift 15s ease-in-out infinite alternate;
+      z-index: 0;
+    }
+
+    @keyframes bgShift {
+      0% { transform: translate(0, 0) rotate(0deg); }
+      100% { transform: translate(-5%, -5%) rotate(3deg); }
+    }
+
+    /* Floating particles */
+    .particles {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    .particle {
+      position: absolute;
+      width: 4px;
+      height: 4px;
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 50%;
+      animation: float linear infinite;
+    }
+
+    @keyframes float {
+      0% {
+        transform: translateY(100vh) scale(0);
+        opacity: 0;
+      }
+      10% {
+        opacity: 1;
+      }
+      90% {
+        opacity: 1;
+      }
+      100% {
+        transform: translateY(-10vh) scale(1);
+        opacity: 0;
+      }
+    }
+
+    .container {
+      text-align: center;
+      z-index: 1;
+      position: relative;
+      padding: 2rem;
+    }
+
+    .event-label {
+      font-size: 0.9rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 4px;
+      color: rgba(255, 255, 255, 0.5);
+      margin-bottom: 0.5rem;
+    }
+
+    .event-date {
+      font-size: 1.1rem;
+      font-weight: 300;
+      color: rgba(255, 255, 255, 0.35);
+      margin-bottom: 3rem;
+      letter-spacing: 1px;
+    }
+
+    .countdown {
+      display: flex;
+      gap: 1.5rem;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-bottom: 3rem;
+    }
+
+    .time-block {
+      position: relative;
+    }
+
+    .time-card {
+      background: rgba(255, 255, 255, 0.03);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 20px;
+      padding: 1.8rem 1.5rem 1.4rem;
+      min-width: 130px;
+      position: relative;
+      overflow: hidden;
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    .time-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 20px 60px rgba(120, 50, 255, 0.15);
+      border-color: rgba(120, 50, 255, 0.2);
+    }
+
+    .time-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(120, 50, 255, 0.5), transparent);
+    }
+
+    .time-value {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 3.5rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, #fff 0%, rgba(255, 255, 255, 0.7) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      line-height: 1;
+      transition: transform 0.3s ease;
+    }
+
+    .time-value.flip {
+      animation: flipDigit 0.6s ease;
+    }
+
+    @keyframes flipDigit {
+      0% { transform: scale(1); }
+      25% { transform: scale(1.1); opacity: 0.7; }
+      50% { transform: scale(0.95); }
+      100% { transform: scale(1); opacity: 1; }
+    }
+
+    .time-label {
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 3px;
+      color: rgba(255, 255, 255, 0.3);
+      margin-top: 0.8rem;
+    }
+
+    .separator {
+      display: flex;
+      align-items: center;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 2.5rem;
+      color: rgba(255, 255, 255, 0.15);
+      animation: blink 1s ease-in-out infinite;
+      padding-bottom: 1.5rem;
+    }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.2; }
+    }
+
+    /* Progress bar */
+    .progress-container {
+      max-width: 600px;
+      margin: 0 auto 2rem;
+    }
+
+    .progress-bar-bg {
+      height: 3px;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 10px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .progress-bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #7832ff, #ff3278);
+      border-radius: 10px;
+      transition: width 1s linear;
+      position: relative;
+    }
+
+    .progress-bar-fill::after {
+      content: '';
+      position: absolute;
+      right: 0;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 8px;
+      height: 8px;
+      background: #ff3278;
+      border-radius: 50%;
+      box-shadow: 0 0 15px rgba(255, 50, 120, 0.6);
+    }
+
+    .progress-text {
+      font-size: 0.75rem;
+      color: rgba(255, 255, 255, 0.25);
+      margin-top: 0.8rem;
+      font-weight: 300;
+    }
+
+    /* Finished state */
+    .finished-message {
+      display: none;
+      animation: fadeInUp 0.8s ease;
+    }
+
+    .finished-message h1 {
+      font-size: 3rem;
+      font-weight: 800;
+      background: linear-gradient(135deg, #7832ff, #ff3278, #ffaa32);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 1rem;
+    }
+
+    .finished-message p {
+      color: rgba(255, 255, 255, 0.5);
+      font-size: 1.1rem;
+    }
+
+    @keyframes fadeInUp {
+      from {
+        opacity: 0;
+        transform: translateY(30px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    /* Responsive — Tablets */
+    @media (max-width: 900px) {
+      .time-card {
+        min-width: 110px;
+        padding: 1.5rem 1.2rem 1.2rem;
+      }
+
+      .time-value {
+        font-size: 3rem;
+      }
+
+      .countdown {
+        gap: 1rem;
+      }
+
+      .separator {
+        font-size: 2rem;
+      }
+    }
+
+    /* Responsive — Mobile */
+    @media (max-width: 600px) {
+      .container {
+        padding: 1.5rem 1rem;
+        width: 100%;
+      }
+
+      .event-label {
+        font-size: 0.7rem;
+        letter-spacing: 3px;
+        margin-bottom: 0.4rem;
+      }
+
+      .event-date {
+        font-size: 0.85rem;
+        margin-bottom: 2rem;
+        padding: 0 0.5rem;
+        line-height: 1.5;
+      }
+
+      .countdown {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.8rem;
+        max-width: 320px;
+        margin: 0 auto 2rem;
+      }
+
+      .separator {
+        display: none;
+      }
+
+      .time-card {
+        min-width: unset;
+        width: 100%;
+        padding: 1.4rem 1rem 1.1rem;
+        border-radius: 16px;
+      }
+
+      .time-value {
+        font-size: 2.6rem;
+      }
+
+      .time-label {
+        font-size: 0.6rem;
+        letter-spacing: 2px;
+        margin-top: 0.6rem;
+      }
+
+      .progress-container {
+        max-width: 280px;
+      }
+
+      .finished-message h1 {
+        font-size: 2rem;
+      }
+
+      .finished-message p {
+        font-size: 0.95rem;
+      }
+    }
+
+    /* Responsive — Small phones */
+    @media (max-width: 380px) {
+      .container {
+        padding: 1rem 0.6rem;
+      }
+
+      .event-label {
+        font-size: 0.6rem;
+        letter-spacing: 2px;
+      }
+
+      .event-date {
+        font-size: 0.75rem;
+        margin-bottom: 1.5rem;
+      }
+
+      .countdown {
+        gap: 0.6rem;
+        max-width: 260px;
+      }
+
+      .time-card {
+        padding: 1.1rem 0.7rem 0.9rem;
+        border-radius: 12px;
+      }
+
+      .time-value {
+        font-size: 2rem;
+      }
+
+      .time-label {
+        font-size: 0.5rem;
+        letter-spacing: 1.5px;
+        margin-top: 0.5rem;
+      }
+
+      .progress-container {
+        max-width: 230px;
+      }
+
+      .progress-text {
+        font-size: 0.65rem;
+      }
+
+      .finished-message h1 {
+        font-size: 1.6rem;
+      }
+
+      .finished-message p {
+        font-size: 0.85rem;
+      }
+    }
+
+    /* Landscape mobile */
+    @media (max-height: 500px) and (orientation: landscape) {
+      .container {
+        padding: 0.8rem 1rem;
+      }
+
+      .event-date {
+        margin-bottom: 1rem;
+      }
+
+      .countdown {
+        display: flex;
+        flex-wrap: nowrap;
+        gap: 0.6rem;
+        margin-bottom: 1rem;
+      }
+
+      .separator {
+        display: flex;
+        font-size: 1.5rem;
+        padding-bottom: 0.8rem;
+      }
+
+      .time-card {
+        min-width: 80px;
+        padding: 1rem 0.8rem 0.8rem;
+      }
+
+      .time-value {
+        font-size: 2rem;
+      }
+
+      .time-label {
+        font-size: 0.5rem;
+        margin-top: 0.4rem;
+      }
+
+      .progress-container {
+        margin-bottom: 0.5rem;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="particles" id="particles"></div>
+
+  <div class="container">
+    <div id="countdown-section">
+      <p class="event-label">Contagem Regressiva</p>
+      <p class="event-date">28 de Abril de 2026 • 21h10 — Ansioso em ver você meu bem</p>
+
+      <div class="countdown" id="countdown">
+        <div class="time-block">
+          <div class="time-card">
+            <div class="time-value" id="days">00</div>
+            <div class="time-label">Dias</div>
+          </div>
+        </div>
+
+        <div class="separator">:</div>
+
+        <div class="time-block">
+          <div class="time-card">
+            <div class="time-value" id="hours">00</div>
+            <div class="time-label">Horas</div>
+          </div>
+        </div>
+
+        <div class="separator">:</div>
+
+        <div class="time-block">
+          <div class="time-card">
+            <div class="time-value" id="minutes">00</div>
+            <div class="time-label">Minutos</div>
+          </div>
+        </div>
+
+        <div class="separator">:</div>
+
+        <div class="time-block">
+          <div class="time-card">
+            <div class="time-value" id="seconds">00</div>
+            <div class="time-label">Segundos</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="progress-container">
+        <div class="progress-bar-bg">
+          <div class="progress-bar-fill" id="progress-fill" style="width: 0%"></div>
+        </div>
+        <p class="progress-text" id="progress-text">0% concluído</p>
+      </div>
+    </div>
+
+    <div class="finished-message" id="finished">
+      <h1>🎉 Chegou a hora!</h1>
+      <p>28 de Abril de 2026 — 21h10</p>
+    </div>
+  </div>
+
+  <script>
+    // Target: April 28, 2026 at 21:10 Brasília time (UTC-3)
+    const TARGET_DATE = new Date('2026-04-29T00:10:00Z'); // 21:10 BRT = 00:10 UTC next day
+
+    // Start date for progress calculation (when page was created)
+    const START_DATE = new Date('2026-02-24T12:00:00Z');
+
+    const daysEl = document.getElementById('days');
+    const hoursEl = document.getElementById('hours');
+    const minutesEl = document.getElementById('minutes');
+    const secondsEl = document.getElementById('seconds');
+    const progressFill = document.getElementById('progress-fill');
+    const progressText = document.getElementById('progress-text');
+    const countdownSection = document.getElementById('countdown-section');
+    const finishedSection = document.getElementById('finished');
+
+    let prevValues = { days: '', hours: '', minutes: '', seconds: '' };
+
+    function updateCountdown() {
+      const now = new Date();
+      const diff = TARGET_DATE - now;
+
+      if (diff <= 0) {
+        countdownSection.style.display = 'none';
+        finishedSection.style.display = 'block';
+        return;
+      }
+
+      const totalSeconds = Math.floor(diff / 1000);
+      const days = Math.floor(totalSeconds / 86400);
+      const hours = Math.floor((totalSeconds % 86400) / 3600);
+      const minutes = Math.floor((totalSeconds % 3600) / 60);
+      const seconds = totalSeconds % 60;
+
+      const values = {
+        days: String(days).padStart(2, '0'),
+        hours: String(hours).padStart(2, '0'),
+        minutes: String(minutes).padStart(2, '0'),
+        seconds: String(seconds).padStart(2, '0')
+      };
+
+      // Animate changed values
+      Object.keys(values).forEach(key => {
+        const el = document.getElementById(key);
+        if (values[key] !== prevValues[key]) {
+          el.textContent = values[key];
+          el.classList.remove('flip');
+          void el.offsetWidth; // trigger reflow
+          el.classList.add('flip');
+        }
+      });
+
+      prevValues = { ...values };
+
+      // Progress bar
+      const totalDuration = TARGET_DATE - START_DATE;
+      const elapsed = now - START_DATE;
+      const progress = Math.min(Math.max((elapsed / totalDuration) * 100, 0), 100);
+      progressFill.style.width = progress.toFixed(2) + '%';
+      progressText.textContent = progress.toFixed(1) + '% concluído';
+    }
+
+    // Particles
+    function createParticles() {
+      const container = document.getElementById('particles');
+      const count = 40;
+
+      for (let i = 0; i < count; i++) {
+        const particle = document.createElement('div');
+        particle.classList.add('particle');
+        particle.style.left = Math.random() * 100 + '%';
+        particle.style.animationDuration = (Math.random() * 15 + 10) + 's';
+        particle.style.animationDelay = (Math.random() * 15) + 's';
+        particle.style.width = (Math.random() * 3 + 2) + 'px';
+        particle.style.height = particle.style.width;
+        particle.style.opacity = Math.random() * 0.3;
+        container.appendChild(particle);
+      }
+    }
+
+    createParticles();
+    updateCountdown();
+    setInterval(updateCountdown, 1000);
+  </script>
+</body>
+</html>
